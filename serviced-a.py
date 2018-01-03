@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 from gi.repository import GLib
-
-import sys
 from traceback import print_exc
 
+import os, sys
 import dbus
 import dbus.service
 
 from dbus.mainloop.glib import DBusGMainLoop
-DBusGMainLoop(set_as_default=True)
 
 SERVICE_NAME = "com.cybernut.demoA"
 INTERFACE_NAME = "com.cybernut.demoA"
@@ -30,13 +28,14 @@ ARRAY: a, ARRAY of two Int32: a(ii)
 """
 
 def hello_signals_handler(hello_string):
-    print "Received a hello signal and it says " + hello_string
+    print "Received a hello signal and it says '" + hello_string+"'"
 
 class ServiceA(dbus.service.Object):
-    def __init__(self):
+    def __init__(self, loop):
         self._session_bus = dbus.SessionBus()
         self._session_bus.request_name(SERVICE_NAME)
         self._service_name = dbus.service.BusName(SERVICE_NAME, bus=self._session_bus)
+        self._loop = loop
         dbus.service.Object.__init__(self, self._service_name, OBJECT_PATH)
 
         # signals
@@ -62,10 +61,20 @@ class ServiceA(dbus.service.Object):
     @dbus.service.method(dbus_interface=INTERFACE_NAME,
                          in_signature='', out_signature='')
     def Exit(self):
-        mainloop.quit()
+        self._loop.quit()
+
+def exit():
+    print "Exiting the service."
+    mainloop.quit()   
 
 if __name__ == "__main__":
-    object = ServiceA()
-    loop = GLib.MainLoop()
-    print "Running example service A."
-    loop.run()
+    DBusGMainLoop(set_as_default=True)
+
+    mainloop = GLib.MainLoop()
+    object = ServiceA(mainloop)
+    
+    print("Running example service A wiht PID %d." % os.getpid())
+    try:
+        mainloop.run()
+    except KeyboardInterrupt:
+        exit()

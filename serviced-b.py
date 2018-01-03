@@ -1,17 +1,15 @@
 #!/usr/bin/env python
-from gi.repository import GLib
-
-import sys
+#from gi.repository import GLib
+from gi.repository import GObject
 from traceback import print_exc
 
 import threading
-import time
-
+import os, sys, time
+import gobject
 import dbus
 import dbus.service
 
 from dbus.mainloop.glib import DBusGMainLoop
-DBusGMainLoop(set_as_default=True)
 
 SERVICE_NAME = "com.cybernut.demoB"
 INTERFACE_NAME = "com.cybernut.demoB"
@@ -32,19 +30,12 @@ TUPLES: a{xy}, x: key, y: value, e.g. a{s(ii)}: keys are string, and values are 
 ARRAY: a, ARRAY of two Int32: a(ii)
 """
 
-class dbusThread(threading.Thread):
-    def __init__(self, mainLoop):
-        threading.Thread.__init__(self)
-        self._loop = mainLoop
-
-    def run(self):
-        self._loop.run()
-
 class ServiceB(dbus.service.Object):
-    def __init__(self):
+    def __init__(self, loop):
         self._session_bus = dbus.SessionBus()
         self._session_bus.request_name(SERVICE_NAME)
         service_name = dbus.service.BusName(SERVICE_NAME, bus=self._session_bus)
+        self._loop = loop
         dbus.service.Object.__init__(self, service_name, OBJECT_PATH)
 
     @dbus.service.method(dbus_interface=INTERFACE_NAME,
@@ -65,7 +56,7 @@ class ServiceB(dbus.service.Object):
     @dbus.service.method(dbus_interface=INTERFACE_NAME,
                          in_signature='', out_signature='')
     def Exit(self):
-        mainloop.quit()
+        self._loop.quit()
 
     @dbus.service.signal(dbus_interface=INTERFACE_NAME)
     def HelloSignal(self, message):
@@ -79,17 +70,31 @@ class ServiceB(dbus.service.Object):
         self.HelloSignal('Hello')
         return 'Signal emitted'
 
-if __name__ == "__main__":
-    object = ServiceB()
-    loop = GLib.MainLoop()
-    print "Running example service B."
-
-    dbusThread = dbusThread(loop)
-
-    print "Emitting signals, using 'ctrl + z' to terminate this..."
-    while 1:
-        message = "Good at "+str(time.ctime(time.time()))
+def thread_signal_func(*args):
+    while True:
+        message = "Hello everyone at "+str(time.ctime(time.time()))+"!"
         object.HelloSignal(message)
-        print "Emitting signals, using 'ctrl + z' to terminate this..."
+        print "Emitting signals, using 'ctrl + c' to terminate this..."
         time.sleep(2)
-        pass
+
+def exit():
+    print "Exiting the service."
+    mainloop.quit()  
+
+if __name__ == "__main__":
+    DBusGMainLoop(set_as_default=True)
+    dbus.mainloop.glib.threads_init()
+
+    mainloop = GObject.MainLoop()
+    object = ServiceB(mainloop)
+
+    thread_emitting_signals = threading.Timer(2, thread_signal_func)
+    # for using Ctrl + C to terminate this program
+    thread_emitting_signals.daemon = True
+    thread_emitting_signals.start()
+
+    print("Running example service B wiht PID %d." % os.getpid())
+    try:
+        mainloop.run()
+    except KeyboardInterrupt:
+        exit()
