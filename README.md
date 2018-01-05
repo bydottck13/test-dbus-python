@@ -28,5 +28,11 @@ Some useful tools for debugging:
 * `busctl` - e.g. busctl --user tree INTERFACE_NAME
 * `dbus-monitor` - execute from CL
 
+## TROUBLESHOOTING
+If using terminals by SSH or other methods, this may exist the problem that DBUS_SESSION_BUS_ADDRESS is empty. Try 
+```
+$ source setup.bash
+```
+
 ## REFERENCE
 * [dbus-python 1.2.4](https://pypi.python.org/pypi/dbus-python)
